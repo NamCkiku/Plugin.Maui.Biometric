@@ -1,7 +1,7 @@
 ﻿using BiometricPrompt = AndroidX.Biometric.BiometricPrompt;
 using Java.Lang;
 
-namespace Plugin.Maui.Biometric;
+namespace BA_Mobile.Biometric;
 
 internal class AuthCallback : BiometricPrompt.AuthenticationCallback
 {

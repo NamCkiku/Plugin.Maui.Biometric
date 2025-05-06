@@ -9,10 +9,10 @@
 		<SkipValidateMauiImplicitPackageReferences>true</SkipValidateMauiImplicitPackageReferences>
 		<AssemblyVersion>0.0.5</AssemblyVersion>
 		<AssemblyFileVersion>0.0.5</AssemblyFileVersion>
-		<Version>0.0.5-pre</Version>
+		<Version>0.0.5</Version>
 		<NeutralLanguage>en</NeutralLanguage>
 		<!--Version of C# to use -->
-		<PackageId>Plugin.Maui.Biometric</PackageId>
+		<PackageId>BA_Mobile.Biometric</PackageId>
 		<LangVersion>latest</LangVersion>
 		<Authors>FreakyAli</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -32,13 +32,14 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">26.0</SupportedOSPlatformVersion>
 		<Configurations>Release;Debug</Configurations>
 	</PropertyGroup>
-	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net9.0-ios|AnyCPU'">
+	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net8.0-ios|AnyCPU'">
 		<CreatePackage>false</CreatePackage>
 	</PropertyGroup>
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
 		<LangVersion>latest</LangVersion>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 	</PropertyGroup>
-	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net9.0-ios|AnyCPU'">
+	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net8.0-ios|AnyCPU'">
 		<CreatePackage>false</CreatePackage>
 	</PropertyGroup>
 	<ItemGroup>
@@ -52,9 +53,11 @@
 		<Folder Include="Platforms\iOS\" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(TargetFramework)' == 'net9.0-android'">
-		<PackageReference Include="Xamarin.AndroidX.Biometric" Version="1.1.0.27" />
-		<PackageReference Include="Xamarin.AndroidX.Collection.Ktx" Version="1.4.5" />
+		<PackageReference Include="Xamarin.AndroidX.Biometric" Version="1.1.0.28" />
+		<PackageReference Include="Xamarin.AndroidX.Collection.Ktx" Version="1.5.0.1" />
 	</ItemGroup>
-	<ItemGroup />
-	<ItemGroup />
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Maui.Controls" Version="9.0.60" />
+		<PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="9.0.60" />
+	</ItemGroup>
 </Project>

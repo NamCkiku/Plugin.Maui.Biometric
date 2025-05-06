@@ -1,7 +1,9 @@
-using Foundation;
+﻿using Foundation;
 using LocalAuthentication;
+using ObjCRuntime;
+using System.Globalization;
 
-namespace Plugin.Maui.Biometric;
+namespace BA_Mobile.Biometric;
 
 internal partial class BiometricService
 {
@@ -20,7 +22,7 @@ internal partial class BiometricService
                 return Task.FromResult(BiometricHwStatus.NotEnrolled);
             }
 
-            return Task.FromResult(BiometricHwStatus.Unavailable);
+            return Task.FromResult(BiometricHwStatus.NotEnrolled);
         }
 
         return Task.FromResult(BiometricHwStatus.Failure);
@@ -30,10 +32,6 @@ internal partial class BiometricService
     {
         var response = new AuthenticationResponse();
         var context = new LAContext();
-        if (request.AllowPasswordAuth is false)
-        {
-            context.LocalizedFallbackTitle = string.Empty;
-        }
         LAPolicy policy = request.AllowPasswordAuth ? LAPolicy.DeviceOwnerAuthentication : LAPolicy.DeviceOwnerAuthenticationWithBiometrics;
         if (context.CanEvaluatePolicy(policy, out NSError _))
         {
@@ -45,22 +43,91 @@ internal partial class BiometricService
         return response;
     }
 
-    public partial Task<BiometricType[]> GetEnrolledBiometricTypesAsync()
+    public async partial Task<List<BiometricType>> GetEnrolledBiometricTypesAsync()
     {
-        var localAuthContext = new LAContext();
-        var availableOptions = new BiometricType[2] { BiometricType.None, BiometricType.None };
-        if (localAuthContext.CanEvaluatePolicy(LAPolicy.DeviceOwnerAuthenticationWithBiometrics, out var _))
-        {
-            var isFace = localAuthContext.BiometryType == LABiometryType.FaceId;
-            var isFingerprint = localAuthContext.BiometryType == LABiometryType.TouchId;
+        var availableOptions = new List<BiometricType>();
 
-            if (isFace || isFingerprint)
+        var localAuthContext = new LAContext();
+        // we need to call this, because it will always return none, if you don't call CanEvaluatePolicy
+        var availability = await GetAvailabilityAsync(
+            strength: AuthenticatorStrength.Weak).ConfigureAwait(false);
+
+        // iOS 11+
+        if (localAuthContext.RespondsToSelector(new Selector("biometryType")))
+        {
+            var type = localAuthContext.BiometryType switch
             {
-                availableOptions[0] = isFace ? BiometricType.Face : BiometricType.None;
-                availableOptions[1] = isFingerprint ? BiometricType.Fingerprint : BiometricType.None;
+                LABiometryType.None => BiometricType.None,
+                LABiometryType.TouchId => BiometricType.Fingerprint,
+                LABiometryType.FaceId => BiometricType.Face,
+                _ => BiometricType.None,
+            };
+            availableOptions.Add(type);
+        }
+        else
+        {
+            // iOS < 11
+            if (availability is Availability.NoApi or
+                                Availability.NoSensor or
+                                Availability.Unknown)
+            {
+                availableOptions.Add(BiometricType.None);
+            }
+            else
+            {
+                availableOptions.Add(BiometricType.Fingerprint);
             }
         }
-        return Task.FromResult(availableOptions);
+        
+        return availableOptions;
+    }
+
+    public Task<Availability> GetAvailabilityAsync(
+        AuthenticatorStrength strength = AuthenticatorStrength.Weak)
+    {
+        var _context = new LAContext();
+        if (_context == null)
+            return Task.FromResult(Availability.NoApi);
+
+        var policy = GetPolicy(strength);
+        if (_context.CanEvaluatePolicy(policy, out var error))
+            return Task.FromResult(Availability.Available);
+
+        switch ((LAStatus)(int)error.Code)
+        {
+            case LAStatus.BiometryNotAvailable:
+                return Task.FromResult(IsDeniedError(error) ?
+                    Availability.Denied :
+                    Availability.NoSensor);
+            case LAStatus.BiometryNotEnrolled:
+                return Task.FromResult(Availability.NoBiometric);
+            case LAStatus.PasscodeNotSet:
+                return Task.FromResult(Availability.NoFallback);
+            default:
+                return Task.FromResult(Availability.Unknown);
+        }
+    }
+
+    private static LAPolicy GetPolicy(AuthenticatorStrength strength)
+    {
+        return strength switch
+        {
+            AuthenticatorStrength.Any => LAPolicy.DeviceOwnerAuthentication,
+            _ => LAPolicy.DeviceOwnerAuthenticationWithBiometrics,
+        };
+    }
+
+    private static bool IsDeniedError(NSError error)
+    {
+        if (!string.IsNullOrEmpty(error.Description))
+        {
+            // we might have some issues, if the error gets localized :/
+#pragma warning disable CA1308
+            return error.Description.ToLower(CultureInfo.InvariantCulture).Contains("denied", StringComparison.OrdinalIgnoreCase);
+#pragma warning restore CA1308
+        }
+
+        return false;
     }
 
     private static partial bool GetIsPlatformSupported() => true;

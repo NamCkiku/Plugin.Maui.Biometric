@@ -1,4 +1,4 @@
-namespace Plugin.Maui.Biometric;
+namespace BA_Mobile.Biometric;
 
 public interface IBiometric
 {
@@ -6,7 +6,7 @@ public interface IBiometric
 
     Task<AuthenticationResponse> AuthenticateAsync(AuthenticationRequest request, CancellationToken token);
 
-    Task<BiometricType[]> GetEnrolledBiometricTypesAsync();
+    Task<List<BiometricType>> GetEnrolledBiometricTypesAsync();
 
     bool IsPlatformSupported { get; }
 }

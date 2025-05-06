@@ -1,4 +1,4 @@
-namespace Plugin.Maui.Biometric;
+namespace BA_Mobile.Biometric;
 #if NET && !ANDROID && !IOS
 internal partial class BiometricService : IBiometric
 {
@@ -12,7 +12,7 @@ internal partial class BiometricService : IBiometric
         throw new NotImplementedException();
     }
 
-    public partial Task<BiometricType[]> GetEnrolledBiometricTypesAsync()
+    public partial Task<List<BiometricType>> GetEnrolledBiometricTypesAsync()
     {
         throw new NotImplementedException();
     }

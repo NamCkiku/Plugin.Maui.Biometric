@@ -1,15 +1,18 @@
-﻿using BiometricPrompt = AndroidX.Biometric.BiometricPrompt;
-using Platform = Microsoft.Maui.ApplicationModel.Platform;
-using AndroidX.Core.Content;
-using AndroidX.Biometric;
-using Activity = AndroidX.AppCompat.App.AppCompatActivity;
+﻿using Android;
+using Android.App;
 using Android.Content.PM;
-using System.Diagnostics;
+using AndroidX.Biometric;
+using AndroidX.Core.Content;
+using Activity = AndroidX.AppCompat.App.AppCompatActivity;
+using Application = Android.App.Application;
+using BiometricPrompt = AndroidX.Biometric.BiometricPrompt;
+using Platform = Microsoft.Maui.ApplicationModel.Platform;
 
-namespace Plugin.Maui.Biometric;
+namespace BA_Mobile.Biometric;
 
 internal partial class BiometricService
 {
+    private readonly BiometricManager biometricManager = BiometricManager.From(Application.Context);
     public partial Task<BiometricHwStatus> GetAuthenticationStatusAsync(AuthenticatorStrength authStrength)
     {
         if (Platform.CurrentActivity is not Activity activity)
@@ -17,7 +20,6 @@ internal partial class BiometricService
             return Task.FromResult(BiometricHwStatus.Failure);
         }
 
-        var biometricManager = BiometricManager.From(activity);
         var strength = authStrength.Equals(AuthenticatorStrength.Strong) ?
             BiometricManager.Authenticators.BiometricStrong :
             BiometricManager.Authenticators.BiometricWeak;
@@ -96,41 +98,90 @@ internal partial class BiometricService
         }
     }
 
-    public partial Task<BiometricType[]> GetEnrolledBiometricTypesAsync()
+    public partial async Task<List<BiometricType>> GetEnrolledBiometricTypesAsync()
     {
-        var availableOptions = new BiometricType[2];
+        var availableOptions = new List<BiometricType>();
         if (Platform.CurrentActivity is Activity activity)
         {
-            var biometricManager = BiometricManager.From(activity);
-            var canAuthenticate = biometricManager.CanAuthenticate(BiometricManager.Authenticators.BiometricWeak);
-            if(canAuthenticate == BiometricManager.BiometricErrorNoneEnrolled)
+            var availability = await GetAvailabilityAsync(
+            strength: AuthenticatorStrength.Weak).ConfigureAwait(false);
+            if (availability is Availability.NoBiometric or
+                                Availability.NoPermission or
+                                Availability.Available)
             {
-                availableOptions[0] = BiometricType.None;
-                availableOptions[1] = BiometricType.None;
-            }
-            if (canAuthenticate == BiometricManager.BiometricSuccess)
-            {
-                // Determine the type of biometric hardware available
-                var packageManager = activity.PackageManager;
-                var isFingerprint = packageManager.HasSystemFeature(PackageManager.FeatureFingerprint);
-                var isFace = OperatingSystem.IsAndroidVersionAtLeast(29) && packageManager.HasSystemFeature(PackageManager.FeatureFace);
-
-                if (isFace)
-                {
-                    availableOptions[0] = BiometricType.Face;
-                }
-                if (isFingerprint)
-                {
-                    availableOptions[1] = BiometricType.Fingerprint;
-                }
-                if (!isFace && !isFingerprint)
-                {
-                    availableOptions[0] = BiometricType.None;
-                    availableOptions[1] = BiometricType.None;
-                }
+                availableOptions.Add(BiometricType.Fingerprint);
             }
         }
-        return Task.FromResult(availableOptions);
+        return availableOptions;
+    }
+
+    private Task<Availability> GetAvailabilityAsync(
+       AuthenticatorStrength strength = AuthenticatorStrength.Weak)
+    {
+        if (!OperatingSystem.IsAndroidVersionAtLeast(23))
+        {
+            return Task.FromResult(Availability.NoApi);
+        }
+
+        if (OperatingSystem.IsAndroidVersionAtLeast(23) &&
+            !OperatingSystem.IsAndroidVersionAtLeast(28) &&
+            Application.Context.CheckCallingOrSelfPermission(Manifest.Permission.UseFingerprint) != Permission.Granted)
+        {
+            return Task.FromResult(Availability.NoPermission);
+        }
+
+        if (OperatingSystem.IsAndroidVersionAtLeast(28) &&
+            Application.Context.CheckCallingOrSelfPermission(Manifest.Permission.UseBiometric) != Permission.Granted)
+        {
+            return Task.FromResult(Availability.NoPermission);
+        }
+
+        var canAuthenticate = biometricManager.CanAuthenticate(GetAllowedAuthenticators(strength));
+        var availability = canAuthenticate switch
+        {
+            BiometricManager.BiometricErrorNoHardware => Availability.NoSensor,
+            BiometricManager.BiometricErrorHwUnavailable => Availability.Unknown,
+            BiometricManager.BiometricErrorNoneEnrolled => Availability.NoBiometric,
+            BiometricManager.BiometricSuccess => Availability.Available,
+            _ => Availability.Unknown,
+        };
+        if (availability == Availability.Available ||
+            strength is not AuthenticatorStrength.Any)
+        {
+            return Task.FromResult(availability);
+        }
+
+        try
+        {
+            if (Application.Context.GetSystemService(
+                    name: Android.Content.Context.KeyguardService) is not KeyguardManager manager)
+            {
+                return Task.FromResult(Availability.NoFallback);
+            }
+
+            return Task.FromResult(manager.IsDeviceSecure
+                ? Availability.Available
+                : Availability.NoFallback);
+        }
+        catch
+        {
+            return Task.FromResult(Availability.NoFallback);
+        }
+    }
+
+    private static int GetAllowedAuthenticators(AuthenticatorStrength strength)
+    {
+        return strength switch
+        {
+            AuthenticatorStrength.Strong => BiometricManager.Authenticators.BiometricStrong,
+            AuthenticatorStrength.Weak => BiometricManager.Authenticators.BiometricStrong |
+                                           BiometricManager.Authenticators.BiometricWeak,
+            AuthenticatorStrength.Any => BiometricManager.Authenticators.BiometricStrong |
+                                          BiometricManager.Authenticators.BiometricWeak |
+                                          BiometricManager.Authenticators.DeviceCredential,
+            _ => throw new ArgumentOutOfRangeException(nameof(strength), strength, null)
+        };
+
     }
 
     private static partial bool GetIsPlatformSupported() => true;

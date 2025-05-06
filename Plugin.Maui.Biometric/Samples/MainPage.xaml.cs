@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Plugin.Maui.Biometric;
+﻿using BA_Mobile.Biometric;
 
 namespace Samples;
 
@@ -17,12 +16,9 @@ public partial class MainPage : ContentPage
     {
         //get a list of enrolled biometric types
         var enrolledTypes = await biometric.GetEnrolledBiometricTypesAsync();
-        foreach(var item in enrolledTypes)
-        {
-            Console.WriteLine(item.ToString());
-        }
+
         //get current status of the hardware
-        var result = await biometric.GetAuthenticationStatusAsync();
+        var result = await biometric.GetAuthenticationStatusAsync(AuthenticatorStrength.Weak);
         if (result == BiometricHwStatus.Success)
         {
             var req = new AuthenticationRequest()

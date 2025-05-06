@@ -1,4 +1,4 @@
-﻿namespace Plugin.Maui.Biometric;
+﻿namespace BA_Mobile.Biometric;
 
 public enum BiometricResponseStatus
 {

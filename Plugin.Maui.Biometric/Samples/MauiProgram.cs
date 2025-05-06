@@ -1,4 +1,4 @@
-﻿using Plugin.Maui.Biometric;
+﻿using BA_Mobile.Biometric;
 
 namespace Samples;
 

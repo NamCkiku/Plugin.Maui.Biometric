@@ -1,4 +1,4 @@
-﻿namespace Plugin.Maui.Biometric;
+﻿namespace BA_Mobile.Biometric;
 
 /// <summary>
 /// This enum gives you an idea of
